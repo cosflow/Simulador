@@ -13,7 +13,7 @@
 
 #define SERVER "212.128.171.68"
 #define PORT 45554
-#define MOUSE_DEV "/dev/input/event5"
+#define MOUSE_DEV "/dev/input/event0"
 #define BUFSIZE 1024
 
 int main() {
@@ -77,8 +77,7 @@ int main() {
             } else if (ev.code == REL_Y) {
                 dy += ev.value;
             }
-            sprintf(buf,"RAW X: %d | Acumulado X: %d | RAW Y: %d | Acumulado Y: %d\n",
-                       ev.value, dx, ev.value, dy);
+            sprintf(buf,"%d/%d\n",dx, dy);
 	    printf("%s", buf);
             send(s,buf,strlen(buf)+1,0);
         }
