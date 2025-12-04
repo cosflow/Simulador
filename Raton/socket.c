@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <signal.h>
 
 #define SERVER "212.128.171.68"
 #define PORT 45554
@@ -19,11 +20,21 @@
 #define pyRuta "../Vibrar/vibrar.py"
 #define BUFSIZE 256
 
+/*
+static volatile sig_atomic_t seguir = 1;
+void manejadorCtrlC(int señal) { seguir = 0; }
+*/
+
 void * enviarPosRaton(void * arg);
 
 int main() {
+  char buf[BUFSIZE];
   pthread_t hilo_Raton;
-  pthread_t hilo_Vibrar;
+  struct sigaction sa = {0};
+  /*  sa.sa_handler = manejadorCtrlC;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGINT, &sa, NULL); */
   int addrlen=sizeof(struct sockaddr_in);
   long timevar;
   struct sockaddr_in serveraddr_in, mouseaddr_in;
@@ -67,16 +78,22 @@ int main() {
       return 1;
   }
 
+  /*  while(seguir){
+    //recv(s, buf, sizeof(buf), 0);
+    //printf("%s", buf);
+    printf("HOLA jej");
+    sleep(1);
+    }*/
+    
   pthread_join(hilo_Raton,NULL);
 
   time(&timevar);
-  printf("All done at %s", (char *)ctime(&timevar));
+  printf("\nEjecución terminada a las: %s", (char *)ctime(&timevar));
   close(s);
   return 0;
 }
 
-void * enviarPosRaton(void * arg){
-  
+void * enviarPosRaton(void * arg){  
   int s = (int)(intptr_t)arg;
   struct input_event ev;
   int dx = 0, dy = 0;
@@ -90,7 +107,7 @@ void * enviarPosRaton(void * arg){
 
   printf("Leyendo desplazamientos del ratón...\n");
 
-  while (1) {
+  while (1) { //cambiar por seguir cuando funcione
     if (read(fd, &ev, sizeof(struct input_event)) < sizeof(struct input_event)) {
       perror("Error al leer evento del ratón");
       close(fd);
