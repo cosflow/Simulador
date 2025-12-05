@@ -14,118 +14,144 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define SERVER "212.128.171.68"
-#define PORT 45554
+#define SERVER    "212.128.171.68"
+#define PORT      45554
+#define LOCALIP   "127.0.0.1"
+#define LOCALPORT 45454
 #define MOUSE_DEV "/dev/input/event6"
-#define pyRuta "../Vibrar/vibrar.py"
-#define BUFSIZE 256
-
-/*
-static volatile sig_atomic_t seguir = 1;
-void manejadorCtrlC(int señal) { seguir = 0; }
-*/
+#define BUFSIZE   256
 
 void * enviarPosRaton(void * arg);
 
 int main() {
-  char buf[BUFSIZE];
+  char buf[1];
   pthread_t hilo_Raton;
-  struct sigaction sa = {0};
-  /*  sa.sa_handler = manejadorCtrlC;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = 0;
-  sigaction(SIGINT, &sa, NULL); */
-  int addrlen=sizeof(struct sockaddr_in);
   long timevar;
-  struct sockaddr_in serveraddr_in, mouseaddr_in;
-  int opt=1;
-  
-  int s = socket (AF_INET, SOCK_STREAM, 0);
-  if (s == -1) {
-    perror("Unable to create socket\n");
-    exit(1);
-  }
-  if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY,&opt,sizeof(opt)) == -1) {
-    perror("Error estableciendo el socket sin delay\n");
-    exit(1);
-  }
-  memset ((char *)&mouseaddr_in, 0, sizeof(struct sockaddr_in));
-  memset ((char *)&serveraddr_in, 0, sizeof(struct sockaddr_in));
+  int opt = 1;
+  int addrlen = sizeof(struct sockaddr_in);
 
-  serveraddr_in.sin_family = AF_INET;
-  serveraddr_in.sin_port = htons(PORT);
-  if(inet_pton(AF_INET,SERVER, (struct sockaddr *) &serveraddr_in.sin_addr) == -1){
-    perror("Error creando IP servidor");
+  int sockRaton  = socket(AF_INET, SOCK_STREAM, 0);   // socket remoto
+  int sockLocal  = socket(AF_INET, SOCK_STREAM, 0);   // socket local
+
+  if (sockRaton == -1 || sockLocal == -1) {
+    perror("Unable to create socket");
     exit(1);
   }
 
-  if (connect(s, (struct sockaddr *)&serveraddr_in, sizeof(struct sockaddr_in)) == -1) {
-    fprintf(stderr,"Error conectándose a %s", SERVER);
+  if (setsockopt(sockRaton, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+    perror("Error estableciendo el socket remoto sin delay");
+    exit(1);
+  }
+  if (setsockopt(sockLocal, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+    perror("Error estableciendo el socket local sin delay");
     exit(1);
   }
 
-  if (getsockname(s, (struct sockaddr *)&mouseaddr_in, &addrlen) == -1) {
-    perror("Unable to read socket address\n");
+  struct sockaddr_in ratonaddr_in, localaddr_in, vibraraddr_in;
+  memset(&ratonaddr_in, 0, sizeof(ratonaddr_in));
+  memset(&localaddr_in, 0, sizeof(localaddr_in));
+  memset(&vibraraddr_in, 0, sizeof(vibraraddr_in));
+
+  // ======= CONEXIÓN AL SERVIDOR REMOTO =======
+  ratonaddr_in.sin_family = AF_INET;
+  ratonaddr_in.sin_port = htons(PORT);
+  if (inet_pton(AF_INET, SERVER, &ratonaddr_in.sin_addr) <= 0) {
+    perror("Error creando IP servidor remoto");
+    exit(1);
+  }
+
+  if (connect(sockRaton, (struct sockaddr *)&ratonaddr_in, sizeof(ratonaddr_in)) == -1) {
+    perror("Error conectándose al servidor remoto");
+    exit(1);
+  }
+
+  if (getsockname(sockRaton, (struct sockaddr *)&localaddr_in, &addrlen) == -1) {
+    perror("Unable to read socket address remoto");
     exit(1);
   }
 
   time(&timevar);
-  printf("Conectado al servidor con IP %s en el puerto %u a las %s",
-	 SERVER, mouseaddr_in.sin_port, (char *) ctime(&timevar));
+  printf("Conectado al servidor REMOTO %s desde puerto local %u a las %s",
+	 SERVER, ntohs(localaddr_in.sin_port), (char *)ctime(&timevar));
 
-  if(pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)s) != 0){
-      perror("Error creando hilo de ratón");
-      return 1;
+  // ======= CONEXIÓN AL SERVIDOR LOCAL =======
+  vibraraddr_in.sin_family = AF_INET;
+  vibraraddr_in.sin_port = htons(LOCALPORT);
+  if (inet_pton(AF_INET, LOCALIP, &vibraraddr_in.sin_addr) <= 0) {
+    perror("Error creando IP servidor local");
+    exit(1);
   }
 
-  /*  while(seguir){
-    //recv(s, buf, sizeof(buf), 0);
-    //printf("%s", buf);
-    printf("HOLA jej");
-    sleep(1);
-    }*/
-    
-  pthread_join(hilo_Raton,NULL);
-
-  time(&timevar);
-  printf("\nEjecución terminada a las: %s", (char *)ctime(&timevar));
-  close(s);
-  return 0;
-}
-
-void * enviarPosRaton(void * arg){  
-  int s = (int)(intptr_t)arg;
-  struct input_event ev;
-  int dx = 0, dy = 0;
-  char buf[BUFSIZE];
-
-  int fd = open(MOUSE_DEV, O_RDONLY);
-  if (fd == -1) {
-    perror("Error al abrir el dispositivo de ratón.");
-    return NULL;
+  if (connect(sockLocal, (struct sockaddr *)&vibraraddr_in, sizeof(vibraraddr_in)) == -1) {
+    perror("Error conectándose al servidor local");
+    exit(1);
   }
 
-  printf("Leyendo desplazamientos del ratón...\n");
+  printf("Conectado al servidor LOCAL %s:%d\n", LOCALIP, LOCALPORT);
 
-  while (1) { //cambiar por seguir cuando funcione
-    if (read(fd, &ev, sizeof(struct input_event)) < sizeof(struct input_event)) {
-      perror("Error al leer evento del ratón");
-      close(fd);
+  // ======= LANZAR HILO DE RATÓN CON SOCKET REMOTO =======
+
+  if (pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)sockRaton) != 0) {
+    perror("Error creando hilo de ratón");
+    return 1;
+  }
+
+  // ======= BUCLE RECIBIENDO (por ejemplo, del remoto) =======
+  while (1) {
+    if (recv(sockRaton, buf, sizeof(buf), 0) <= 0) {
+      perror("Error o cierre en recv remoto");
+      break;
+    }
+    printf("Recibido del remoto: %c\n", buf[0]);
+    if (send(sockLocal,buf,sizeof(buf), 0) <=0) {
+      perror("Error o cierre en send local");
+      break;
+    }        
+  }
+
+    pthread_join(hilo_Raton, NULL);
+
+    time(&timevar);
+    printf("\nEjecución terminada a las: %s", (char *)ctime(&timevar));
+    close(sockRaton);
+    close(sockLocal);
+    return 0;
+  }
+
+  void * enviarPosRaton(void * arg) {
+    int sockRaton =  (int)(intptr_t)arg;
+
+    struct input_event ev;
+    int dx = 0, dy = 0;
+    char buf[BUFSIZE];
+
+    int fd = open(MOUSE_DEV, O_RDONLY);
+    if (fd == -1) {
+      perror("Error al abrir el dispositivo de ratón.");
       return NULL;
     }
 
-    if (ev.type == EV_REL) {
-      if (ev.code == REL_X) {
-	dx += ev.value;
-      } else if (ev.code == REL_Y) {
-	dy += ev.value;
+    printf("Leyendo desplazamientos del ratón...\n");
+
+    while (1) {
+      if (read(fd, &ev, sizeof(struct input_event)) < (ssize_t)sizeof(struct input_event)) {
+	perror("Error al leer evento del ratón");
+	close(fd);
+	return NULL;
       }
-      sprintf(buf,"%d/%d\n",dx, dy);
-      send(s,buf,strlen(buf)+1,0);
+
+      if (ev.type == EV_REL) {
+	if (ev.code == REL_X) {
+	  dx += ev.value;
+	} else if (ev.code == REL_Y) {
+	  dy += ev.value;
+	}
+
+	sprintf(buf, "%d/%d\n", dx, dy);
+	send(sockRaton, buf, strlen(buf), 0);
+      }
     }
+
+    close(fd);
+    return NULL;
   }
-
-  close(fd);
-  return NULL;
-}
-
