@@ -14,12 +14,13 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define SERVER    "212.128.171.68"
-#define PORT      45554
-#define LOCALIP   "127.0.0.1"
-#define LOCALPORT 45454
-#define MOUSE_DEV "/dev/input/event6"
-#define BUFSIZE   256
+#define BUFSIZE       256
+#define REMOTE_PORT   45554
+#define LOCAL_PORT    45454
+#define REMOTE_IP     "127.0.0.1"
+#define REMOTE_IP2    "212.128.171.68"
+#define LOCAL_IP      "127.0.0.1"
+#define MOUSE_DEV     "/dev/input/event6"
 
 void * enviarPosRaton(void * arg);
 
@@ -30,8 +31,8 @@ int main() {
   int opt = 1;
   int addrlen = sizeof(struct sockaddr_in);
 
-  int sockRaton  = socket(AF_INET, SOCK_STREAM, 0);   // socket remoto
-  int sockLocal  = socket(AF_INET, SOCK_STREAM, 0);   // socket local
+  int sockRaton  = socket(AF_INET, SOCK_STREAM, 0);
+  int sockLocal  = socket(AF_INET, SOCK_STREAM, 0);
 
   if (sockRaton == -1 || sockLocal == -1) {
     perror("Unable to create socket");
@@ -50,12 +51,11 @@ int main() {
   struct sockaddr_in ratonaddr_in, localaddr_in, vibraraddr_in;
   memset(&ratonaddr_in, 0, sizeof(ratonaddr_in));
   memset(&localaddr_in, 0, sizeof(localaddr_in));
-  memset(&vibraraddr_in, 0, sizeof(vibraraddr_in));
+  memset(&localaddr_in, 0, sizeof(vibraraddr_in));
 
-  // ======= CONEXIÓN AL SERVIDOR REMOTO =======
   ratonaddr_in.sin_family = AF_INET;
-  ratonaddr_in.sin_port = htons(PORT);
-  if (inet_pton(AF_INET, SERVER, &ratonaddr_in.sin_addr) <= 0) {
+  ratonaddr_in.sin_port = htons(REMOTE_PORT);
+  if (inet_pton(AF_INET, REMOTE_IP, &ratonaddr_in.sin_addr) <= 0) {
     perror("Error creando IP servidor remoto");
     exit(1);
   }
@@ -72,12 +72,11 @@ int main() {
 
   time(&timevar);
   printf("Conectado al servidor REMOTO %s desde puerto local %u a las %s",
-	 SERVER, ntohs(localaddr_in.sin_port), (char *)ctime(&timevar));
+	 REMOTE_IP, ntohs(localaddr_in.sin_port), (char *)ctime(&timevar));
 
-  // ======= CONEXIÓN AL SERVIDOR LOCAL =======
   vibraraddr_in.sin_family = AF_INET;
-  vibraraddr_in.sin_port = htons(LOCALPORT);
-  if (inet_pton(AF_INET, LOCALIP, &vibraraddr_in.sin_addr) <= 0) {
+  vibraraddr_in.sin_port = htons(LOCAL_PORT);
+  if (inet_pton(AF_INET, LOCAL_IP, &vibraraddr_in.sin_addr) <= 0) {
     perror("Error creando IP servidor local");
     exit(1);
   }
@@ -87,16 +86,13 @@ int main() {
     exit(1);
   }
 
-  printf("Conectado al servidor LOCAL %s:%d\n", LOCALIP, LOCALPORT);
-
-  // ======= LANZAR HILO DE RATÓN CON SOCKET REMOTO =======
+  printf("Conectado al servidor LOCAL %s:%d\n", LOCAL_IP, LOCAL_PORT);
 
   if (pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)sockRaton) != 0) {
     perror("Error creando hilo de ratón");
     return 1;
   }
 
-  // ======= BUCLE RECIBIENDO (por ejemplo, del remoto) =======
   while (1) {
     if (recv(sockRaton, buf, sizeof(buf), 0) <= 0) {
       perror("Error o cierre en recv remoto");

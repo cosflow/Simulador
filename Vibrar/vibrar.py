@@ -1,10 +1,10 @@
 import time
 import board
-import busio
-import adafruit_drv2605
+#import busio
+#import adafruit_drv2605
 import sys
 import socket
-import sys
+
 HOST = '127.0.0.1'  # localhost
 PORT = 45454        # LOCALPORT
 """
