@@ -17,10 +17,10 @@
 #define BUFSIZE       256
 #define REMOTE_PORT   45554
 #define LOCAL_PORT    45454
-#define REMOTE_IP     "127.0.0.1"
+#define REMOTE_IP     "192.168.1.40"
 #define REMOTE_IP2    "212.128.171.68"
 #define LOCAL_IP      "127.0.0.1"
-#define MOUSE_DEV     "/dev/input/event6"
+#define MOUSE_DEV     "/dev/input/event4"
 
 void * enviarPosRaton(void * arg);
 
@@ -144,6 +144,7 @@ int main() {
 	}
 
 	sprintf(buf, "%d/%d\n", dx, dy);
+	printf("%s", buf);
 	send(sockRaton, buf, strlen(buf), 0);
       }
     }

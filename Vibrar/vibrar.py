@@ -1,5 +1,6 @@
 import time
 import board
+#import lgpio
 #import busio
 #import adafruit_drv2605
 import sys
@@ -20,7 +21,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.listen(1)
         conn, addr = s.accept()
         with conn:
-            print(f'Cliente conectado desde {addr}')        
+            print("Cliente conectado")
             while True:
                 try:
                     data = conn.recv(1)
