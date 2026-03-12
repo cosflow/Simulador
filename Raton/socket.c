@@ -17,10 +17,10 @@
 #define BUFSIZE       256
 #define REMOTE_PORT   45554
 #define LOCAL_PORT    45454
-#define REMOTE_IP     "192.168.1.40"
-#define REMOTE_IP2    "212.128.171.68"
+//#define REMOTE_IP    "192.168.1.40"
+#define REMOTE_IP     "212.128.171.68"
 #define LOCAL_IP      "127.0.0.1"
-#define MOUSE_DEV     "/dev/input/event4"
+#define MOUSE_DEV     "/dev/input/event5"
 
 void * enviarPosRaton(void * arg);
 
@@ -31,75 +31,75 @@ int main() {
   int opt = 1;
   int addrlen = sizeof(struct sockaddr_in);
 
-  int sockRaton  = socket(AF_INET, SOCK_STREAM, 0);
-  int sockLocal  = socket(AF_INET, SOCK_STREAM, 0);
+  int remoteSocket  = socket(AF_INET, SOCK_STREAM, 0);
+  int localSocket  = socket(AF_INET, SOCK_STREAM, 0);
 
-  if (sockRaton == -1 || sockLocal == -1) {
+  if (remoteSocket == -1 || localSocket == -1) {
     perror("Unable to create socket");
     exit(1);
   }
 
-  if (setsockopt(sockRaton, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+  if (setsockopt(remoteSocket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
     perror("Error estableciendo el socket remoto sin delay");
     exit(1);
   }
-  if (setsockopt(sockLocal, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+  if (setsockopt(localSocket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
     perror("Error estableciendo el socket local sin delay");
     exit(1);
   }
 
-  struct sockaddr_in ratonaddr_in, localaddr_in, vibraraddr_in;
-  memset(&ratonaddr_in, 0, sizeof(ratonaddr_in));
-  memset(&localaddr_in, 0, sizeof(localaddr_in));
-  memset(&localaddr_in, 0, sizeof(vibraraddr_in));
+  struct sockaddr_in remoteAddr_in, myAddr_in, localAddr_in;
+  memset(&remoteAddr_in, 0, sizeof(remoteAddr_in));
+  memset(&myAddr_in, 0, sizeof(myAddr_in));
+  memset(&myAddr_in, 0, sizeof(localAddr_in));
 
-  ratonaddr_in.sin_family = AF_INET;
-  ratonaddr_in.sin_port = htons(REMOTE_PORT);
-  if (inet_pton(AF_INET, REMOTE_IP, &ratonaddr_in.sin_addr) <= 0) {
+  remoteAddr_in.sin_family = AF_INET;
+  remoteAddr_in.sin_port = htons(REMOTE_PORT);
+  if (inet_pton(AF_INET, REMOTE_IP, &remoteAddr_in.sin_addr) <= 0) {
     perror("Error creando IP servidor remoto");
     exit(1);
   }
 
-  if (connect(sockRaton, (struct sockaddr *)&ratonaddr_in, sizeof(ratonaddr_in)) == -1) {
+  if (connect(remoteSocket, (struct sockaddr *)&remoteAddr_in, sizeof(remoteAddr_in)) == -1) {
     perror("Error conectándose al servidor remoto");
     exit(1);
   }
 
-  if (getsockname(sockRaton, (struct sockaddr *)&localaddr_in, &addrlen) == -1) {
+  if (getsockname(remoteSocket, (struct sockaddr *)&myAddr_in, &addrlen) == -1) {
     perror("Unable to read socket address remoto");
     exit(1);
   }
 
   time(&timevar);
   printf("Conectado al servidor REMOTO %s desde puerto local %u a las %s",
-	 REMOTE_IP, ntohs(localaddr_in.sin_port), (char *)ctime(&timevar));
+	 REMOTE_IP, ntohs(myAddr_in.sin_port), (char *)ctime(&timevar));
 
-  vibraraddr_in.sin_family = AF_INET;
-  vibraraddr_in.sin_port = htons(LOCAL_PORT);
-  if (inet_pton(AF_INET, LOCAL_IP, &vibraraddr_in.sin_addr) <= 0) {
+  localAddr_in.sin_family = AF_INET;
+  localAddr_in.sin_port = htons(LOCAL_PORT);
+  if (inet_pton(AF_INET, LOCAL_IP, &localAddr_in.sin_addr) <= 0) {
     perror("Error creando IP servidor local");
     exit(1);
   }
 
-  if (connect(sockLocal, (struct sockaddr *)&vibraraddr_in, sizeof(vibraraddr_in)) == -1) {
+  if (connect(localSocket, (struct sockaddr *)&localAddr_in, sizeof(localAddr_in)) == -1) {
     perror("Error conectándose al servidor local");
     exit(1);
   }
 
   printf("Conectado al servidor LOCAL %s:%d\n", LOCAL_IP, LOCAL_PORT);
 
-  if (pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)sockRaton) != 0) {
+  if (pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)remoteSocket) != 0) {
     perror("Error creando hilo de ratón");
     return 1;
   }
 
   while (1) {
-    if (recv(sockRaton, buf, sizeof(buf), 0) <= 0) {
+    if (recv(remoteSocket, buf, sizeof(buf), 0) <= 0) {
       perror("Error o cierre en recv remoto");
       break;
     }
     printf("Recibido del remoto: %c\n", buf[0]);
-    if (send(sockLocal,buf,sizeof(buf), 0) <=0) {
+    if (send(localSocket,buf,sizeof(buf), 0) <=0) {
       perror("Error o cierre en send local");
       break;
     }        
@@ -109,13 +109,13 @@ int main() {
 
     time(&timevar);
     printf("\nEjecución terminada a las: %s", (char *)ctime(&timevar));
-    close(sockRaton);
-    close(sockLocal);
+    close(remoteSocket);
+    close(localSocket);
     return 0;
   }
 
   void * enviarPosRaton(void * arg) {
-    int sockRaton =  (int)(intptr_t)arg;
+    int remoteSocket =  (int)(intptr_t)arg;
 
     struct input_event ev;
     int dx = 0, dy = 0;
@@ -145,7 +145,7 @@ int main() {
 
 	sprintf(buf, "%d/%d\n", dx, dy);
 	printf("%s", buf);
-	send(sockRaton, buf, strlen(buf), 0);
+	send(remoteSocket, buf, strlen(buf), 0);
       }
     }
 
