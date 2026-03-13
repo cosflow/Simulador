@@ -14,7 +14,8 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define BUFSIZE       16
+#define BUFSIZEC      16
+#define BUFSIZEV      2
 #define REMOTE_PORT   45554
 #define LOCAL_PORT    45454
 //#define REMOTE_IP    "192.168.1.40"
@@ -25,7 +26,9 @@
 void * enviarPosRaton(void * arg);
 
 int main() {
-	char buf[BUFSIZE];
+	char bufCoord[BUFSIZEC];
+	char bufVib[BUFSIZEV];
+	char vibId;
 	pthread_t hilo_Raton;
 	long timevar;
 	int opt = 1;
@@ -85,11 +88,12 @@ int main() {
 		exit(2);
 	}
 	while (1) {
-		if (recv(remoteSocket, buf, BUFSIZE, 0) < 0) {
+		if (recv(remoteSocket, &vibId, sizeof(char), 0) < 0) {
 			perror("Error o cierre en recv remoto");
 			exit(-1);
 		}
-		if (send(localSocket,buf,strlen(buf), 0) < 0) {
+		printf("%c\n", vibId);
+		if (send(localSocket,&vibId,sizeof(char), 0) < 0) {
 			perror("Error o cierre en send local");
 			break;
 		} 
@@ -107,7 +111,7 @@ void * enviarPosRaton(void * arg) {
 	int remoteSocket =  (int)(intptr_t)arg;
 	struct input_event ev;
 	int dx = 0, dy = 0;
-	char buf[BUFSIZE];
+	char bufCoord[BUFSIZEC];
 	int fd = open(MOUSE_DEV, O_RDONLY);
 
 	if (fd == -1) {
@@ -129,8 +133,8 @@ void * enviarPosRaton(void * arg) {
 				dy += ev.value;
 			}
 
-			snprintf(buf, BUFSIZE, "%d/%d\n", dx, dy);
-			send(remoteSocket, buf, strlen(buf), 0);
+			snprintf(bufCoord, BUFSIZEC, "%d/%d\n", dx, dy);
+			send(remoteSocket, bufCoord, strlen(bufCoord), 0);
 		}
 	}
 
