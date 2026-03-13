@@ -5,6 +5,7 @@ import busio
 import adafruit_drv2605
 import sys
 import socket
+import struct
 
 HOST = '127.0.0.1'  # localhost
 PORT = 45454        # LOCALPORT
@@ -25,9 +26,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     with conn:
         print('Connected by', addr)
         while True:
-            data = conn.recv(1)
+            data = conn.recv(4)
             if not data: break
-            print(data.decode(errors="ignore"))
+            vibId = struct.unpack("!I", data)[0]  # network order -> int
+            print(vibId)
             """
             drv.sequence[0] = adafruit_drv2605.Effect(data[0])
             drv.play()  # play the effect

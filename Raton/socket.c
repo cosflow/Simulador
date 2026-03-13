@@ -21,14 +21,16 @@
 //#define REMOTE_IP    "192.168.1.40"
 #define REMOTE_IP     "212.128.171.68"
 #define LOCAL_IP      "127.0.0.1"
-#define MOUSE_DEV     "/dev/input/event5"
+#define MOUSE_DEV     "/dev/input/event1"
+#define TARGET_INTERVAL_US 8000
 
 void * enviarPosRaton(void * arg);
+void * enviarPosRaton2(void * arg);
 
 int main() {
 	char bufCoord[BUFSIZEC];
 	char bufVib[BUFSIZEV];
-	char vibId;
+	int vibId;
 	pthread_t hilo_Raton;
 	long timevar;
 	int opt = 1;
@@ -88,12 +90,12 @@ int main() {
 		exit(2);
 	}
 	while (1) {
-		if (recv(remoteSocket, &vibId, sizeof(char), 0) < 0) {
+		if (recv(remoteSocket, &vibId, sizeof(vibId), 0) < 0) {
 			perror("Error o cierre en recv remoto");
 			exit(-1);
 		}
-		printf("%c\n", vibId);
-		if (send(localSocket,&vibId,sizeof(char), 0) < 0) {
+		printf("%d\n", ntohl(vibId));
+		if (send(localSocket,&vibId,sizeof(vibId), 0) < 0) {
 			perror("Error o cierre en send local");
 			break;
 		} 
@@ -123,7 +125,7 @@ void * enviarPosRaton(void * arg) {
 		if (read(fd, &ev, sizeof(struct input_event)) < (ssize_t)sizeof(struct input_event)) {
 			perror("Error al leer evento del ratón");
 			close(fd);
-			return NULL;
+			exit(-3);
 		}
 
 		if (ev.type == EV_REL) {
@@ -133,11 +135,69 @@ void * enviarPosRaton(void * arg) {
 				dy += ev.value;
 			}
 
+		}
+		else if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
+
 			snprintf(bufCoord, BUFSIZEC, "%d/%d\n", dx, dy);
 			send(remoteSocket, bufCoord, strlen(bufCoord), 0);
+
+			dx = 0;
+			dy = 0;
 		}
 	}
 
 	close(fd);
 	return NULL;
+}
+void *enviarPosRaton2(void *arg) {
+    int remoteSocket = (int)(intptr_t)arg;
+    struct input_event ev;
+    int fd = open(MOUSE_DEV, O_RDONLY);
+    if (fd < 0) {
+        perror("No se pudo abrir el dispositivo");
+        return NULL;
+    }
+
+    int dx_acc = 0, dy_acc = 0;        // acumuladores de movimiento
+    int last_dx = 0, last_dy = 0;      // último delta enviado
+    char buf[BUFSIZEC];
+
+    while (1) {
+        ssize_t n = read(fd, &ev, sizeof(ev));
+        if (n != sizeof(ev)) continue;
+
+        // SOLO nos interesa el movimiento relativo crudo
+        if (ev.type == EV_REL) {
+            if (ev.code == REL_X) dx_acc += ev.value;
+            if (ev.code == REL_Y) dy_acc += ev.value;
+        }
+        else if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
+            // delta real desde el último report
+            int delta_x = dx_acc - last_dx;
+            int delta_y = dy_acc - last_dy;
+
+            // número de pasos intermedios para interpolar suavemente
+            int steps = TARGET_INTERVAL_US / 32000; // 32 ms ≈ polling MosArt
+            if (steps < 1) steps = 1;
+
+            float step_dx = delta_x / (float)steps;
+            float step_dy = delta_y / (float)steps;
+
+            // enviar pasos interpolados
+            for (int i = 1; i <= steps; i++) {
+                int interp_dx = (int)(step_dx + 0.5f);  // redondeo
+                int interp_dy = (int)(step_dy + 0.5f);
+
+                snprintf(buf, BUFSIZEC, "%d/%d\n", interp_dx, interp_dy);
+                send(remoteSocket, buf, strlen(buf), 0);
+                usleep(TARGET_INTERVAL_US);
+            }
+
+            last_dx = dx_acc;
+            last_dy = dy_acc;
+        }
+    }
+
+    close(fd);
+    return NULL;
 }
