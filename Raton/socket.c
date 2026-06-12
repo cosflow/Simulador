@@ -21,8 +21,7 @@
 //#define REMOTE_IP    "192.168.1.40"
 #define REMOTE_IP     "212.128.171.68"
 #define LOCAL_IP      "127.0.0.1"
-#define MOUSE_DEV     "/dev/input/event1"
-#define TARGET_INTERVAL_US 8000
+#define MOUSE_DEV     "/dev/input/event4" //cambiar por ID
 
 void * enviarPosRaton(void * arg);
 void * enviarPosRaton2(void * arg);
