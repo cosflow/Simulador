@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <time.h>
 #include <linux/input.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
@@ -20,7 +19,7 @@
 #define IDLOC         1
 #define REMOTE_PORT   45554
 #define LOCAL_PORT    45454
-#define REMOTE_IP     "212.128.171.68"  //"192.168.1.40"
+#define REMOTE_IP     "212.128.171.68"
 #define LOCAL_IP      "127.0.0.1"
 #define MOUSE_DEV     "/dev/input/by-id/usb-Logitech_Wireless_Receiver-event-mouse"
 
@@ -31,58 +30,43 @@ void die(char *msg){
 }
 
 int main() {
-	char bufCoord[BUFSIZEC];
-	int vibId;
+	signal(SIGPIPE, SIG_IGN);
 	pthread_t hilo_Raton;
-	long timevar;
-	int opt = 1, i;
+	int opt = 1;
 	size_t addrlen = sizeof(struct sockaddr_in);
 	struct sockaddr_in addrs[NUMSOCK];
 	int sockets[NUMSOCK];
-	int ports[NUMSOCK] ={REMOTE_PORT, LOCAL_PORT};
+	const char *ips[] = {REMOTE_IP, LOCAL_IP};
+	const int ports[] = {REMOTE_PORT, LOCAL_PORT};
 	for (int i = 0 ; i < NUMSOCK ; i++){
 		sockets[i] = socket(AF_INET, SOCK_STREAM, 0);
 		if (sockets[i] == -1) die("Unable to create socket");
 		memset(&addrs[i], 0, sizeof(addrs[i]));
 		if (setsockopt(sockets[i], IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1)
-	       		die("Error estableciendo el socket remoto sin delay");
+	       	die("Error estableciendo el socket remoto sin delay");
 		addrs[i].sin_family = AF_INET;
-		char * ip;
-		int port;
-		if (i == IDREM) {
-			ip = REMOTE_IP;
-			port = REMOTE_PORT;
-		}
-		else {
-			ip = LOCAL_IP;
-			port = LOCAL_PORT;
-		}
-		addrs[i].sin_port = htons(port);
-		if (inet_pton(AF_INET, ip,  &addrs[i].sin_addr) <= 0)
+		addrs[i].sin_port = htons(ports[i]);
+		if (inet_pton(AF_INET, ips[i],  &addrs[i].sin_addr) <= 0)
 			die("Error generando IP");
 		if (connect(sockets[i], (struct sockaddr *)&addrs[i], addrlen) == -1)
 			die("Error conectándose al servidor");
 	}
 
-	time(&timevar);
-	printf("Conectado al servidor REMOTO %s a las %s\n", REMOTE_IP, (char *)ctime(&timevar));
-	printf("Conectado al servidor LOCAL %s:%d\n", LOCAL_IP, LOCAL_PORT);
+	printf("Conectados\n");
 	if (pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)sockets[IDREM]) != 0)
 		die("Error creando hilo de ratón");
-
-	while (1) {
-		if (recv(sockets[IDREM], &vibId, sizeof(vibId), 0) < 0)
-			die("Error o cierre en recv remoto");
-		int dec = ntohl(vibId);
-		printf("%d\n", dec);
-		if (send(sockets[IDLOC],&dec,sizeof(dec), 0) < 0)
+	
+	int msg;
+	while (recv(sockets[IDREM], &msg, sizeof(msg), 0) > 0) {
+		int vibId = ntohl(msg);
+		printf("%d\n", vibId);
+		if (send(sockets[IDLOC],&vibId,sizeof(vibId), 0) <= 0)
 			die("Error o cierre en send local");
 	}
 	
 	pthread_join(hilo_Raton, NULL);
-	time(&timevar);
-	printf("\nEjecución terminada a las: %s", (char *)ctime(&timevar));
-	for (int i = 0 ; i < NUMSOCK ; i++) close(sockets[i]);
+	printf("\nEjecución terminada\n");
+	for (int i = 0 ; i < NUMSOCK ; i++) if (sockets[i] >= 0) close(sockets[i]);
 	return 0;
 }
 
@@ -93,30 +77,21 @@ void * enviarPosRaton(void * arg) {
 	char bufCoord[BUFSIZEC];
 	int fd = open(MOUSE_DEV, O_RDONLY);
 
-	if (fd == -1) {
-		perror("Error al abrir el dispositivo de ratón.");
-		return NULL;
-	}
+	if (fd == -1) die("Error al abrir el dispositivo de ratón.");
 	printf("Leyendo desplazamientos del ratón...\n");
-	while (1) {
-		if (read(fd, &ev, sizeof(struct input_event)) < (ssize_t)sizeof(struct input_event)) {
-			close(fd);
-			die("Error al leer evento del ratón");
-		}
-
+	while (!(read(fd, &ev, sizeof(struct input_event)) < (ssize_t)sizeof(struct input_event))) {
 		if (ev.type == EV_REL) {
 			if (ev.code == REL_X) dx += ev.value;
 			else if (ev.code == REL_Y) dy += ev.value;
 		}
-
 		else if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
-			snprintf(bufCoord, BUFSIZEC, "%d/%d\n", dx, dy);
-			send(s, bufCoord, strlen(bufCoord), 0);
-			dx = 0;
-			dy = 0;
+			if (dx || dy) {
+				snprintf(bufCoord, BUFSIZEC, "%d/%d\n", dx, dy);
+				if (send(s, bufCoord, strlen(bufCoord), 0) <= 0) die("Error send raton");
+				dx = 0;
+				dy = 0;
+			}
 		}
 	}
-
 	close(fd);
-	return NULL;
 }
