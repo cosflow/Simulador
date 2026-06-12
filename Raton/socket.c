@@ -20,10 +20,9 @@
 #define IDLOC         1
 #define REMOTE_PORT   45554
 #define LOCAL_PORT    45454
-//#define REMOTE_IP    "192.168.1.40"
-#define REMOTE_IP     "212.128.171.68"
+#define REMOTE_IP     "212.128.171.68"  //"192.168.1.40"
 #define LOCAL_IP      "127.0.0.1"
-#define MOUSE_DEV     "/dev/input/event4" //cambiar por /dev/input/id/id-raton
+#define MOUSE_DEV     "/dev/input/by-id/usb-Logitech_Wireless_Receiver-event-mouse"
 
 void * enviarPosRaton(void * arg);
 void die(char *msg){
