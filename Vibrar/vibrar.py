@@ -27,11 +27,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         print('Connected by', addr)
         while True:
             data = conn.recv(4)
-            if not data: break
-            vibId = struct.unpack("!I", data)[0]  # network order -> int
+            if not data: continue
+            #vibId = struct.unpack("!I", data)[0]  # network order -> int
+            vibId = data
             print(vibId)
             """
-            drv.sequence[0] = adafruit_drv2605.Effect(data[0])
+            drv.sequence[0] = adafruit_drv2605.Effect(vibId)
             drv.play()  # play the effect
             time.sleep(0.5)  # for 0.5 seconds
             drv.stop()
