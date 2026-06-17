@@ -21,7 +21,7 @@
 #define LOCAL_PORT    45454
 #define REMOTE_IP     "212.128.171.68"
 #define LOCAL_IP      "127.0.0.1"
-#define MOUSE_DEV     "/dev/input/by-id/usb-Logitech_Wireless_Receiver-event-mouse"
+#define MOUSE_DEV     "/dev/input/event4"
 
 void * enviarPosRaton(void * arg);
 void die(char *msg){
@@ -53,18 +53,18 @@ int main() {
 	}
 
 	printf("Conectados\n");
+	/*
 	if (pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)sockets[IDREM]) != 0)
 		die("Error creando hilo de ratón");
-	
+*/	
 	int msg;
 	while (recv(sockets[IDREM], &msg, sizeof(msg), 0) > 0) {
-		int vibId = ntohl(msg);
-		printf("%d\n", vibId);
-		if (send(sockets[IDLOC],&vibId,sizeof(vibId), 0) <= 0)
+		printf("%d\n", ntohl(msg));
+		if (send(sockets[IDLOC],&msg,sizeof(msg), 0) <= 0)
 			die("Error o cierre en send local");
 	}
 	
-	pthread_join(hilo_Raton, NULL);
+//	pthread_join(hilo_Raton, NULL);
 	printf("\nEjecución terminada\n");
 	for (int i = 0 ; i < NUMSOCK ; i++) if (sockets[i] >= 0) close(sockets[i]);
 	return 0;
@@ -94,4 +94,5 @@ void * enviarPosRaton(void * arg) {
 		}
 	}
 	close(fd);
+	return NULL;
 }

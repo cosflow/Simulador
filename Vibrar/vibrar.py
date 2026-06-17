@@ -22,14 +22,17 @@ drv = adafruit_drv2605.DRV2605(i2c)
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((HOST, PORT))
     s.listen(1)
-    conn, addr = s.accept()
-    with conn:
-        print('Connected by', addr)
+
+    while True:
+        conn, addr = s.accept()
+        print("Connected by", addr)
         while True:
             data = conn.recv(4)
-            if not data: continue
-            #vibId = struct.unpack("!I", data)[0]  # network order -> int
-            vibId = data
+            if not data:
+                print("Cliente desconectado")
+                conn.close()
+                break
+            vibId = struct.unpack("!I", data)[0]  # network order -> int
             print(vibId)
             """
             drv.sequence[0] = adafruit_drv2605.Effect(vibId)
