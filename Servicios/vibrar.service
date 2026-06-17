@@ -1,0 +1,16 @@
+[Unit]
+Description=Servidor de vibracion Python
+After=network.target
+
+[Service]
+Type=simple
+User=sonda
+WorkingDirectory=/home/sonda/Simulador/Vibrar
+
+ExecStart=/home/sonda/Simulador/Vibrar/i2c/bin/python /home/sonda/Simulador/Vibrar/vibrar.py
+
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
