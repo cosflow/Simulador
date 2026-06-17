@@ -43,7 +43,7 @@ int main() {
 		if (sockets[i] == -1) die("Unable to create socket");
 		memset(&addrs[i], 0, sizeof(addrs[i]));
 		if (setsockopt(sockets[i], IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1)
-	       	die("Error estableciendo el socket remoto sin delay");
+	       	die("Error estableciendo socket sin delay");
 		addrs[i].sin_family = AF_INET;
 		addrs[i].sin_port = htons(ports[i]);
 		if (inet_pton(AF_INET, ips[i],  &addrs[i].sin_addr) <= 0)
