@@ -53,10 +53,8 @@ int main() {
 	}
 
 	printf("Conectados\n");
-	/*
 	if (pthread_create(&hilo_Raton, NULL, enviarPosRaton, (void*)(intptr_t)sockets[IDREM]) != 0)
 		die("Error creando hilo de ratón");
-*/	
 	int msg;
 	while (recv(sockets[IDREM], &msg, sizeof(msg), 0) > 0) {
 		printf("%d\n", ntohl(msg));
@@ -64,7 +62,7 @@ int main() {
 			die("Error o cierre en send local");
 	}
 	
-//	pthread_join(hilo_Raton, NULL);
+	pthread_join(hilo_Raton, NULL);
 	printf("\nEjecución terminada\n");
 	for (int i = 0 ; i < NUMSOCK ; i++) if (sockets[i] >= 0) close(sockets[i]);
 	return 0;
