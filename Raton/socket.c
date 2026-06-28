@@ -74,6 +74,7 @@ void * enviarPosRaton(void * arg) {
 	int s =  (int)(intptr_t)arg;
 	struct input_event ev;
 	int dx = 0, dy = 0;
+	struct timeval prev = {0};
 	char bufCoord[BUFSIZEC];
 	int fd = open(MOUSE_DEV, O_RDONLY);
 
@@ -84,7 +85,7 @@ void * enviarPosRaton(void * arg) {
 			if (ev.code == REL_X) dx += ev.value;
 			else if (ev.code == REL_Y) dy += ev.value;
 		}
-		else if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
+		else if (ev.type == EV_SYN && ev.code == SYN_REPORT){
 			if (dx || dy) {
 				snprintf(bufCoord, BUFSIZEC, "%d/%d\n", dx, dy);
 				if (send(s, bufCoord, strlen(bufCoord), 0) <= 0) die("Error send raton");

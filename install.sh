@@ -34,7 +34,6 @@ make
 
 sudo make install
 
-
 cd "$INSTALL_HOME"
 
 if [ -d Simulador ]; then
