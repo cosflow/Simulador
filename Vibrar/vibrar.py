@@ -7,8 +7,8 @@ import sys
 import socket
 import struct
 
-HOST = '127.0.0.1'  # localhost
-PORT = 45454        # LOCALPORT
+HOST = '127.0.0.1'
+PORT = 45454
 
 i2c = busio.I2C(board.SCL, board.SDA)
 if not adafruit_drv2605._DRV2605_ADDR in i2c.scan():
@@ -30,7 +30,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 print("Cliente desconectado")
                 conn.close()
                 break
-            vibId = struct.unpack("!I", data)[0]  # network order -> int
+            vibId = struct.unpack("!I", data)[0] 
             print(vibId)
             
             drv.sequence[0] = adafruit_drv2605.Effect(vibId)
